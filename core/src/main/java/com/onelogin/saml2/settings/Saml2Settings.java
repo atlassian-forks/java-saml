@@ -74,6 +74,7 @@ public class Saml2Settings {
 	private boolean rejectUnsolicitedResponsesWithInResponseTo = false;
 	private boolean allowRepeatAttributeName = false;
 	private String uniqueIDPrefix = null;
+	private boolean wantConditionsPresent = true;
 
 	// Compress
 	private boolean compressRequest = true;
@@ -1013,7 +1014,25 @@ public class Saml2Settings {
 	{
 		return this.spValidationOnly;
 	}
-	
+
+
+	/**
+	 *
+	 * @return the wantConditionsPresentValue
+	 */
+	public boolean isWantConditionsPresent() {
+		return wantConditionsPresent;
+	}
+
+	/**
+	 * Set the wantConditionsPresent value, used to determine if the Conditions element is required
+	 *
+	 * @param wantConditionsPresent the wantConditionsPresent value
+	 */
+	public void setWantConditionsPresent(boolean wantConditionsPresent) {
+		this.wantConditionsPresent = wantConditionsPresent;
+	}
+
 	/**
 	 * Gets the SP metadata. The XML representation.
 	 *
