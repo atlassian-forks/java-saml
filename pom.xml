@@ -3,7 +3,7 @@
 
 	<groupId>com.onelogin</groupId>
 	<artifactId>java-saml-toolkit</artifactId>
-	<version>2.6.1-SNAPSHOT</version>
+	<version>2.6.0-atlassian-1-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
 	<name>OneLogin java-saml Toolkit Project</name>
@@ -16,6 +16,7 @@
 		<junitVersion>4.13</junitVersion>
 		<logbackVersion>1.2.3</logbackVersion>
 		<apacheCommonsLangVersion>3.11</apacheCommonsLangVersion>
+		<owasp.dependency.check.skip>false</owasp.dependency.check.skip>
 	</properties>
 
 	<modules>
@@ -102,6 +103,10 @@
 					<suppressionFiles>
 						<suppressionFile>.nvd-suppressions.xml</suppressionFile>
 					</suppressionFiles>
+					<!-- the OWASP check can sometimes pull in malformed data, resulting in a plugin failure. I'm not sure
+					how often this occurs, so if this blocks the build and we have data about the dependencies from other
+					security tools then this flag can be used to skip the execution -->
+					<skip>${owasp.dependency.check.skip}</skip>
 				</configuration>
 				<executions>
 					<execution>
