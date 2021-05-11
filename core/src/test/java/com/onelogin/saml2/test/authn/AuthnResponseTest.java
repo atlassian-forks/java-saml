@@ -11,6 +11,7 @@ import com.onelogin.saml2.settings.SettingsBuilder;
 import com.onelogin.saml2.util.Constants;
 import com.onelogin.saml2.util.Util;
 
+import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeUtils;
@@ -1609,6 +1610,17 @@ public class AuthnResponseTest {
 		assertEquals("Invalid SAML Response. Not match the saml-schema-protocol-2.0.xsd", samlResponse.getError());
 	}
 
+	@Test
+	public void testCorrectlyHandlesDifferentIssuers() throws IOException, Error, XPathExpressionException, ParserConfigurationException, SAXException, SettingsException, ValidationError {
+		Saml2Settings settings = new SettingsBuilder().fromFile("config/config.my.properties").build();
+		final String requestURL = "https://pitbulk.no-ip.org/newonelogin/demo1/index.php?acs";
+		String samlResponseEncoded = Util.getFileAsString("data/responses/invalids/different_issuers.xml.base64");
+		settings.setStrict(false);
+		settings.setWantXMLValidation(false);
+		SamlResponse samlResponse = new SamlResponse(settings, newHttpRequest(requestURL, samlResponseEncoded));
+		MatcherAssert.assertThat(samlResponse.getIssuers(), contains("https://pitbulk.no-ip.org/simplesaml/saml2/idp/responseissuer.php", "https://pitbulk.no-ip.org/simplesaml/saml2/idp/assertionissuer.php"));
+	}
+
 	/**
 	 * Tests the isValid method of SamlResponse
 	 * Case: invalid Destination
@@ -1811,7 +1823,7 @@ public class AuthnResponseTest {
 		settings.setStrict(true);
 		samlResponse = new SamlResponse(settings, newHttpRequest(samlResponseEncoded));
 		assertFalse(samlResponse.isValid());
-		assertEquals("No Signature found. SAML Response rejected", samlResponse.getError());
+		assertEquals("Invalid issuer in the Assertion/Response. Was 'http://invalid.isser.example.com/', but expected 'http://idp.example.com/'", samlResponse.getError());
 		
 	}
 
