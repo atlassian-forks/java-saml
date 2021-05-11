@@ -5,8 +5,11 @@ import java.security.PrivateKey;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
@@ -83,6 +86,7 @@ public class Saml2Settings {
 	// Misc
 	private List<Contact> contacts = new LinkedList<>();
 	private Organization organization = null;
+	private Set<ConditionlessResponseHandler> conditionlessResponseHandlers = new LinkedHashSet<>();
 
 	private boolean spValidationOnly = false;
 	
@@ -1031,6 +1035,14 @@ public class Saml2Settings {
 	 */
 	public void setWantConditionsPresent(boolean wantConditionsPresent) {
 		this.wantConditionsPresent = wantConditionsPresent;
+	}
+
+	public void addConditionlessResponseHandler(ConditionlessResponseHandler handler) {
+		conditionlessResponseHandlers.add(handler);
+	}
+
+	public Set<ConditionlessResponseHandler> getConditionlessResponseHandlers() {
+		return new LinkedHashSet<>(conditionlessResponseHandlers);
 	}
 
 	/**

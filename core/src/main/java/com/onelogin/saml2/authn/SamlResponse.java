@@ -1,15 +1,14 @@
 package com.onelogin.saml2.authn;
 
-import java.io.IOException;
-import java.security.PrivateKey;
-import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.xpath.XPathExpressionException;
+import com.onelogin.saml2.exception.SettingsException;
+import com.onelogin.saml2.exception.ValidationError;
+import com.onelogin.saml2.http.HttpRequest;
+import com.onelogin.saml2.model.SamlResponseStatus;
+import com.onelogin.saml2.model.SubjectConfirmationIssue;
+import com.onelogin.saml2.settings.Saml2Settings;
+import com.onelogin.saml2.util.Constants;
+import com.onelogin.saml2.util.SchemaFactory;
+import com.onelogin.saml2.util.Util;
 import org.joda.time.DateTime;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
@@ -20,15 +19,17 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
-import com.onelogin.saml2.exception.SettingsException;
-import com.onelogin.saml2.exception.ValidationError;
-import com.onelogin.saml2.http.HttpRequest;
-import com.onelogin.saml2.model.SamlResponseStatus;
-import com.onelogin.saml2.model.SubjectConfirmationIssue;
-import com.onelogin.saml2.settings.Saml2Settings;
-import com.onelogin.saml2.util.Constants;
-import com.onelogin.saml2.util.SchemaFactory;
-import com.onelogin.saml2.util.Util;
+
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathExpressionException;
+import java.io.IOException;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * SamlResponse class of OneLogin's Java Toolkit.
@@ -209,6 +210,7 @@ public class SamlResponse {
 			final boolean hasSignedResponse = signedElements.contains(responseTag);
 			final boolean hasSignedAssertion = signedElements.contains(assertionTag);
 
+			List<String> issuers = null;
 			if (settings.isStrict()) {
 				if (settings.getWantXMLValidation()) {
 					if (!Util.validateXML(samlResponseDocument, SchemaFactory.SAML_SCHEMA_PROTOCOL_2_0)) {
@@ -276,7 +278,7 @@ public class SamlResponse {
 				validateAudiences();
 
 				// Check the issuers
-				List<String> issuers = this.getIssuers();
+				issuers = this.getIssuers();
 				for (final String issuer : issuers) {
 					if (issuer.isEmpty() || !issuer.equals(settings.getIdpEntityId())) {
 						throw new ValidationError(
@@ -334,12 +336,21 @@ public class SamlResponse {
 			}
 
 			LOGGER.debug("SAMLResponse validated --> {}", samlResponseString);
+			if (issuers != null) {
+				handleConditionlessResponses(issuers);
+			}
 			return true;
 		} catch (Exception e) {
 			validationException = e;
 			LOGGER.debug("SAMLResponse invalid --> {}", samlResponseString);
 			LOGGER.error(validationException.getMessage());
 			return false;
+		}
+	}
+
+	private void handleConditionlessResponses(List<String> issuers) throws XPathExpressionException {
+		if (getConditions().getLength() == 0) {
+			settings.getConditionlessResponseHandlers().forEach(h -> h.handleConditionlessResponse(issuers));
 		}
 	}
 
@@ -656,12 +667,16 @@ public class SamlResponse {
 	 * @throws XPathExpressionException
 	 */
 	public Boolean checkOneCondition() throws XPathExpressionException {
-		NodeList entries = this.queryAssertion("/saml:Conditions");
+		NodeList entries = getConditions();
 		if (entries.getLength() == 1) {
 			return true;
 		} else {
 			return false;
 		}
+	}
+
+	private NodeList getConditions() throws XPathExpressionException {
+		return this.queryAssertion("/saml:Conditions");
 	}
 
 	/**
