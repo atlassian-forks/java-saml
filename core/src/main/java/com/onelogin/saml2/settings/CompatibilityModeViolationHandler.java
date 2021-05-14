@@ -11,5 +11,5 @@ public interface CompatibilityModeViolationHandler {
      * @param hasConditions true if there was a Conditions element in the response, false otherwise
      * @param amountOfAuthnStatements the amount of AuthnStatement elements in the response
      */
-    void handleConditionlessResponse(Iterable<String> issuers, boolean hasConditions, int amountOfAuthnStatements);
+    void handleCompatibilityModeAssistedReponse(Iterable<String> issuers, boolean hasConditions, int amountOfAuthnStatements);
 }

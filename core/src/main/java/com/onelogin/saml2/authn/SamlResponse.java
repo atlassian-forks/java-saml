@@ -357,7 +357,7 @@ public class SamlResponse {
 		if (amountOfConditions == 0 || amountOfAuthnStatements != 1) {
 			final CompatibilityModeViolationHandler handler = settings.getCompatibilityModeViolationHandler();
 			if (handler != null) {
-				handler.handleConditionlessResponse(issuers, getConditions().getLength() > 0, amountOfAuthnStatements);
+				handler.handleCompatibilityModeAssistedReponse(issuers, getConditions().getLength() > 0, amountOfAuthnStatements);
 			}
 		}
 	}

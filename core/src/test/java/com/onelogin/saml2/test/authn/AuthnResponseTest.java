@@ -1762,7 +1762,7 @@ public class AuthnResponseTest {
 		SamlResponse samlResponse = new SamlResponse(settings, newHttpRequest("https://example.com/newonelogin/demo1/index.php?acs", samlResponseEncoded));
 		assertTrue(samlResponse.isValid());
 		assertNull(samlResponse.getError());
-		verify(handler).handleConditionlessResponse(Collections.singletonList("https://example.com/simplesaml/saml2/idp/metadata.php"), false, 1);
+		verify(handler).handleCompatibilityModeAssistedReponse(Collections.singletonList("https://example.com/simplesaml/saml2/idp/metadata.php"), false, 1);
 	}
 
 	/**
@@ -1838,7 +1838,7 @@ public class AuthnResponseTest {
 		SamlResponse samlResponse = new SamlResponse(settings, newHttpRequest(samlResponseEncoded));
  		assertTrue(samlResponse.isValid());
 		assertNull(samlResponse.getError());
-		verify(handler).handleConditionlessResponse(Collections.singletonList("https://example.com/simplesaml/saml2/idp/metadata.php"), true, 2);
+		verify(handler).handleCompatibilityModeAssistedReponse(Collections.singletonList("https://example.com/simplesaml/saml2/idp/metadata.php"), true, 2);
 	}
 
 	/**
