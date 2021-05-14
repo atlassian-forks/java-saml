@@ -5,6 +5,7 @@ import com.onelogin.saml2.exception.ValidationError;
 import com.onelogin.saml2.http.HttpRequest;
 import com.onelogin.saml2.model.SamlResponseStatus;
 import com.onelogin.saml2.model.SubjectConfirmationIssue;
+import com.onelogin.saml2.settings.CompatibilityModeViolationHandler;
 import com.onelogin.saml2.settings.Saml2Settings;
 import com.onelogin.saml2.util.Constants;
 import com.onelogin.saml2.util.SchemaFactory;
@@ -249,7 +250,7 @@ public class SamlResponse {
 				}
 
 				// Validate Conditions element exists
-				if (settings.isWantConditionsPresent()) {
+				if (!settings.isCompatibilityMode()) {
 					if (!this.checkOneCondition()) {
 						throw new ValidationError("The Assertion must include a Conditions element", ValidationError.MISSING_CONDITIONS);
 					}
@@ -261,8 +262,10 @@ public class SamlResponse {
 				}
 
 				// Validate AuthnStatement element exists and is unique
-				if (!this.checkOneAuthnStatement()) {
-					throw new ValidationError("The Assertion must include an AuthnStatement element", ValidationError.WRONG_NUMBER_OF_AUTHSTATEMENTS);
+				if (!settings.isCompatibilityMode()) {
+					if (!this.checkOneAuthnStatement()) {
+						throw new ValidationError("The Assertion must include an AuthnStatement element", ValidationError.WRONG_NUMBER_OF_AUTHSTATEMENTS);
+					}
 				}
 
 				// EncryptedAttributes are not supported
@@ -349,8 +352,13 @@ public class SamlResponse {
 	}
 
 	private void handleConditionlessResponses(List<String> issuers) throws XPathExpressionException {
-		if (getConditions().getLength() == 0) {
-			settings.getConditionlessResponseHandlers().forEach(h -> h.handleConditionlessResponse(issuers));
+		final int amountOfConditions = getConditions().getLength();
+		final int amountOfAuthnStatements = getAuthnStatements().getLength();
+		if (amountOfConditions == 0 || amountOfAuthnStatements != 1) {
+			final CompatibilityModeViolationHandler handler = settings.getCompatibilityModeViolationHandler();
+			if (handler != null) {
+				handler.handleConditionlessResponse(issuers, getConditions().getLength() > 0, amountOfAuthnStatements);
+			}
 		}
 	}
 
@@ -687,12 +695,16 @@ public class SamlResponse {
 	 * @throws XPathExpressionException
 	 */
 	public Boolean checkOneAuthnStatement() throws XPathExpressionException {
-		NodeList entries = this.queryAssertion("/saml:AuthnStatement");
+		NodeList entries = getAuthnStatements();
 		if (entries.getLength() == 1) {
 			return true;
 		} else {
 			return false;
 		}
+	}
+
+	private NodeList getAuthnStatements() throws XPathExpressionException {
+		return this.queryAssertion("/saml:AuthnStatement");
 	}
 
 	/**

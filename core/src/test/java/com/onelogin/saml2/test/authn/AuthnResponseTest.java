@@ -6,7 +6,7 @@ import com.onelogin.saml2.exception.SettingsException;
 import com.onelogin.saml2.exception.ValidationError;
 import com.onelogin.saml2.http.HttpRequest;
 import com.onelogin.saml2.model.SamlResponseStatus;
-import com.onelogin.saml2.settings.ConditionlessResponseHandler;
+import com.onelogin.saml2.settings.CompatibilityModeViolationHandler;
 import com.onelogin.saml2.settings.Saml2Settings;
 import com.onelogin.saml2.settings.SettingsBuilder;
 import com.onelogin.saml2.util.Constants;
@@ -23,7 +23,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
-import org.mockito.InOrder;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -54,8 +53,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 public class AuthnResponseTest {
 	private static final String ACS_URL = "http://localhost:8080/java-saml-jspsample/acs.jsp";
@@ -1715,7 +1714,7 @@ public class AuthnResponseTest {
 
 	/**
 	 * Tests the isValid method of SamlResponse
-	 * Case: invalid Conditions
+	 * Case: no Conditions element present, compatibility mode enabled
 	 *
 	 * @throws ValidationError
 	 * @throws SettingsException
@@ -1728,8 +1727,8 @@ public class AuthnResponseTest {
 	 * @see com.onelogin.saml2.authn.SamlResponse#isValid
 	 */
 	@Test
-	public void testIsInValidConditionsWithoutConditionsValidation() throws IOException, Error, XPathExpressionException, ParserConfigurationException, SAXException, SettingsException, ValidationError {
-		Saml2Settings settings = new SettingsBuilder().fromFile("config/config.mywithoutconditions.properties").build();
+	public void testIsInValidConditions_compatibilityMode() throws IOException, Error, XPathExpressionException, ParserConfigurationException, SAXException, SettingsException, ValidationError {
+		Saml2Settings settings = new SettingsBuilder().fromFile("config/config.mywithcompatibilitymode.properties").build();
 		String samlResponseEncoded = Util.getFileAsString("data/responses/invalids/no_conditions.xml.base64");
 		setDateTime("2014-02-19T09:35:01Z");
 
@@ -1740,7 +1739,7 @@ public class AuthnResponseTest {
 
 	/**
 	 * Tests the if conditionless response handlers are called during the isValid method of SamlResponse
-	 * Case: missing Conditions
+	 * Case: missing Conditions, compatibility mode enabled
 	 *
 	 * @throws ValidationError
 	 * @throws SettingsException
@@ -1754,23 +1753,16 @@ public class AuthnResponseTest {
 	 */
 	@Test
 	public void testConditionlessHandlersAreCalled() throws IOException, Error, XPathExpressionException, ParserConfigurationException, SAXException, SettingsException, ValidationError {
-		Saml2Settings settings = new SettingsBuilder().fromFile("config/config.mywithoutconditions.properties").build();
-		final ConditionlessResponseHandler handler1 = mock(ConditionlessResponseHandler.class);
-		final ConditionlessResponseHandler handler2 = mock(ConditionlessResponseHandler.class);
-		final ConditionlessResponseHandler handler3 = mock(ConditionlessResponseHandler.class);
-		settings.addConditionlessResponseHandler(handler2);
-		settings.addConditionlessResponseHandler(handler1);
-		settings.addConditionlessResponseHandler(handler3);
+		Saml2Settings settings = new SettingsBuilder().fromFile("config/config.mywithcompatibilitymode.properties").build();
+		final CompatibilityModeViolationHandler handler = mock(CompatibilityModeViolationHandler.class);
+		settings.setCompatibilityModeViolationHandler(handler);
 		String samlResponseEncoded = Util.getFileAsString("data/responses/invalids/no_conditions.xml.base64");
 		setDateTime("2014-02-19T09:35:01Z");
 
 		SamlResponse samlResponse = new SamlResponse(settings, newHttpRequest("https://example.com/newonelogin/demo1/index.php?acs", samlResponseEncoded));
 		assertTrue(samlResponse.isValid());
 		assertNull(samlResponse.getError());
-		final InOrder inOrder = inOrder(handler1, handler2, handler3);
-		inOrder.verify(handler2).handleConditionlessResponse(Collections.singletonList("https://example.com/simplesaml/saml2/idp/metadata.php"));
-		inOrder.verify(handler1).handleConditionlessResponse(Collections.singletonList("https://example.com/simplesaml/saml2/idp/metadata.php"));
-		inOrder.verify(handler3).handleConditionlessResponse(Collections.singletonList("https://example.com/simplesaml/saml2/idp/metadata.php"));
+		verify(handler).handleConditionlessResponse(Collections.singletonList("https://example.com/simplesaml/saml2/idp/metadata.php"), false, 1);
 	}
 
 	/**
@@ -1795,6 +1787,58 @@ public class AuthnResponseTest {
 		SamlResponse samlResponse = new SamlResponse(settings, newHttpRequest(samlResponseEncoded));
 		assertFalse(samlResponse.isValid());
 		assertEquals("The Assertion must include an AuthnStatement element", samlResponse.getError());
+	}
+
+	/**
+	 * Tests the isValid method of SamlResponse
+	 * Case: missing authn statement, compatibility mode enabled
+	 *
+	 * @throws ValidationError
+	 * @throws SettingsException
+	 * @throws IOException
+	 * @throws SAXException
+	 * @throws ParserConfigurationException
+	 * @throws XPathExpressionException
+	 * @throws Error
+	 *
+	 * @see com.onelogin.saml2.authn.SamlResponse#isValid
+	 */
+	@Test
+	public void testIsInValidAuthStatement_compatibilityMode() throws IOException, Error, XPathExpressionException, ParserConfigurationException, SAXException, SettingsException, ValidationError {
+		Saml2Settings settings = new SettingsBuilder().fromFile("config/config.mywithcompatibilitymode.properties").build();
+		String samlResponseEncoded = Util.getFileAsString("data/responses/invalids/no_authnstatement.xml.base64");
+
+		SamlResponse samlResponse = new SamlResponse(settings, newHttpRequest(samlResponseEncoded));
+ 		assertTrue(samlResponse.isValid());
+		assertNull(samlResponse.getError());
+	}
+
+	/**
+	 * Tests the isValid method of SamlResponse
+	 * Case: multiple authn statements, compatibility mode enabled
+	 *
+	 * @throws ValidationError
+	 * @throws SettingsException
+	 * @throws IOException
+	 * @throws SAXException
+	 * @throws ParserConfigurationException
+	 * @throws XPathExpressionException
+	 * @throws Error
+	 *
+	 * @see com.onelogin.saml2.authn.SamlResponse#isValid
+	 */
+	@Test
+	public void testIsInValidAuthStatement_compatibilityModeMultipleAuthnStatements() throws IOException, Error, XPathExpressionException, ParserConfigurationException, SAXException, SettingsException, ValidationError {
+		Saml2Settings settings = new SettingsBuilder().fromFile("config/config.mywithcompatibilitymode.properties").build();
+		String samlResponseEncoded = Util.getFileAsString("data/responses/invalids/multiple_authnstatements.xml.base64");
+		final CompatibilityModeViolationHandler handler = mock(CompatibilityModeViolationHandler.class);
+		settings.setCompatibilityModeViolationHandler(handler);
+		setDateTime("2010-11-18T21:52:37Z");
+
+		SamlResponse samlResponse = new SamlResponse(settings, newHttpRequest(samlResponseEncoded));
+ 		assertTrue(samlResponse.isValid());
+		assertNull(samlResponse.getError());
+		verify(handler).handleConditionlessResponse(Collections.singletonList("https://example.com/simplesaml/saml2/idp/metadata.php"), true, 2);
 	}
 
 	/**

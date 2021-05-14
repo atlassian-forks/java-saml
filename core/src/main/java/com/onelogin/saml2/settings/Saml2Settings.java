@@ -77,7 +77,7 @@ public class Saml2Settings {
 	private boolean rejectUnsolicitedResponsesWithInResponseTo = false;
 	private boolean allowRepeatAttributeName = false;
 	private String uniqueIDPrefix = null;
-	private boolean wantConditionsPresent = true;
+	private boolean compatibilityMode = false;
 
 	// Compress
 	private boolean compressRequest = true;
@@ -86,7 +86,7 @@ public class Saml2Settings {
 	// Misc
 	private List<Contact> contacts = new LinkedList<>();
 	private Organization organization = null;
-	private Set<ConditionlessResponseHandler> conditionlessResponseHandlers = new LinkedHashSet<>();
+	private CompatibilityModeViolationHandler compatibilityModeViolationHandler;
 
 	private boolean spValidationOnly = false;
 	
@@ -1024,25 +1024,31 @@ public class Saml2Settings {
 	 *
 	 * @return the wantConditionsPresentValue
 	 */
-	public boolean isWantConditionsPresent() {
-		return wantConditionsPresent;
+	public boolean isCompatibilityMode() {
+		return compatibilityMode;
 	}
 
 	/**
-	 * Set the wantConditionsPresent value, used to determine if the Conditions element is required
+	 * Set the compatibilityMode value, used to enable compatibility mode with the 2.0.0 pre-release version. This means
+	 * that the Conditions and AuthnStatement elements will be optional.
 	 *
-	 * @param wantConditionsPresent the wantConditionsPresent value
+	 * @param compatibilityMode the wantConditionsPresent value
 	 */
-	public void setWantConditionsPresent(boolean wantConditionsPresent) {
-		this.wantConditionsPresent = wantConditionsPresent;
+	public void setCompatibilityMode(boolean compatibilityMode) {
+		this.compatibilityMode = compatibilityMode;
 	}
 
-	public void addConditionlessResponseHandler(ConditionlessResponseHandler handler) {
-		conditionlessResponseHandlers.add(handler);
+	/**
+	 * sets the compatibility mode violation handler. This handler will be called whenever a response was processed due
+	 * to enabled compatibility mode
+	 * @param handler
+	 */
+	public void setCompatibilityModeViolationHandler(CompatibilityModeViolationHandler handler) {
+		compatibilityModeViolationHandler = handler;
 	}
 
-	public Set<ConditionlessResponseHandler> getConditionlessResponseHandlers() {
-		return new LinkedHashSet<>(conditionlessResponseHandlers);
+	public CompatibilityModeViolationHandler getCompatibilityModeViolationHandler() {
+		return compatibilityModeViolationHandler;
 	}
 
 	/**
