@@ -6,11 +6,13 @@ import com.onelogin.saml2.exception.SettingsException;
 import com.onelogin.saml2.exception.ValidationError;
 import com.onelogin.saml2.http.HttpRequest;
 import com.onelogin.saml2.model.SamlResponseStatus;
+import com.onelogin.saml2.settings.CompatibilityModeViolationHandler;
 import com.onelogin.saml2.settings.Saml2Settings;
 import com.onelogin.saml2.settings.SettingsBuilder;
 import com.onelogin.saml2.util.Constants;
 import com.onelogin.saml2.util.Util;
 
+import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeUtils;
@@ -28,6 +30,7 @@ import org.xml.sax.SAXException;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +53,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 public class AuthnResponseTest {
 	private static final String ACS_URL = "http://localhost:8080/java-saml-jspsample/acs.jsp";
@@ -1609,6 +1614,17 @@ public class AuthnResponseTest {
 		assertEquals("Invalid SAML Response. Not match the saml-schema-protocol-2.0.xsd", samlResponse.getError());
 	}
 
+	@Test
+	public void testCorrectlyHandlesDifferentIssuers() throws IOException, Error, XPathExpressionException, ParserConfigurationException, SAXException, SettingsException, ValidationError {
+		Saml2Settings settings = new SettingsBuilder().fromFile("config/config.my.properties").build();
+		final String requestURL = "https://pitbulk.no-ip.org/newonelogin/demo1/index.php?acs";
+		String samlResponseEncoded = Util.getFileAsString("data/responses/invalids/different_issuers.xml.base64");
+		settings.setStrict(false);
+		settings.setWantXMLValidation(false);
+		SamlResponse samlResponse = new SamlResponse(settings, newHttpRequest(requestURL, samlResponseEncoded));
+		MatcherAssert.assertThat(samlResponse.getIssuers(), contains("https://pitbulk.no-ip.org/simplesaml/saml2/idp/responseissuer.php", "https://pitbulk.no-ip.org/simplesaml/saml2/idp/assertionissuer.php"));
+	}
+
 	/**
 	 * Tests the isValid method of SamlResponse
 	 * Case: invalid Destination
@@ -1698,7 +1714,7 @@ public class AuthnResponseTest {
 
 	/**
 	 * Tests the isValid method of SamlResponse
-	 * Case: invalid Conditions
+	 * Case: no Conditions element present, compatibility mode enabled
 	 *
 	 * @throws ValidationError
 	 * @throws SettingsException
@@ -1711,14 +1727,42 @@ public class AuthnResponseTest {
 	 * @see com.onelogin.saml2.authn.SamlResponse#isValid
 	 */
 	@Test
-	public void testIsInValidConditionsWithoutConditionsValidation() throws IOException, Error, XPathExpressionException, ParserConfigurationException, SAXException, SettingsException, ValidationError {
-		Saml2Settings settings = new SettingsBuilder().fromFile("config/config.mywithoutconditions.properties").build();
+	public void testIsInValidConditions_compatibilityMode() throws IOException, Error, XPathExpressionException, ParserConfigurationException, SAXException, SettingsException, ValidationError {
+		Saml2Settings settings = new SettingsBuilder().fromFile("config/config.mywithcompatibilitymode.properties").build();
 		String samlResponseEncoded = Util.getFileAsString("data/responses/invalids/no_conditions.xml.base64");
 		setDateTime("2014-02-19T09:35:01Z");
 
 		SamlResponse samlResponse = new SamlResponse(settings, newHttpRequest("https://example.com/newonelogin/demo1/index.php?acs", samlResponseEncoded));
 		assertTrue(samlResponse.isValid());
 		assertNull(samlResponse.getError());
+	}
+
+	/**
+	 * Tests the if conditionless response handlers are called during the isValid method of SamlResponse
+	 * Case: missing Conditions, compatibility mode enabled
+	 *
+	 * @throws ValidationError
+	 * @throws SettingsException
+	 * @throws IOException
+	 * @throws SAXException
+	 * @throws ParserConfigurationException
+	 * @throws XPathExpressionException
+	 * @throws Error
+	 *
+	 * @see com.onelogin.saml2.authn.SamlResponse#isValid
+	 */
+	@Test
+	public void testConditionlessHandlersAreCalled() throws IOException, Error, XPathExpressionException, ParserConfigurationException, SAXException, SettingsException, ValidationError {
+		Saml2Settings settings = new SettingsBuilder().fromFile("config/config.mywithcompatibilitymode.properties").build();
+		final CompatibilityModeViolationHandler handler = mock(CompatibilityModeViolationHandler.class);
+		settings.setCompatibilityModeViolationHandler(handler);
+		String samlResponseEncoded = Util.getFileAsString("data/responses/invalids/no_conditions.xml.base64");
+		setDateTime("2014-02-19T09:35:01Z");
+
+		SamlResponse samlResponse = new SamlResponse(settings, newHttpRequest("https://example.com/newonelogin/demo1/index.php?acs", samlResponseEncoded));
+		assertTrue(samlResponse.isValid());
+		assertNull(samlResponse.getError());
+		verify(handler).handleCompatibilityModeAssistedReponse(Collections.singletonList("https://example.com/simplesaml/saml2/idp/metadata.php"), false, 1);
 	}
 
 	/**
@@ -1743,6 +1787,58 @@ public class AuthnResponseTest {
 		SamlResponse samlResponse = new SamlResponse(settings, newHttpRequest(samlResponseEncoded));
 		assertFalse(samlResponse.isValid());
 		assertEquals("The Assertion must include an AuthnStatement element", samlResponse.getError());
+	}
+
+	/**
+	 * Tests the isValid method of SamlResponse
+	 * Case: missing authn statement, compatibility mode enabled
+	 *
+	 * @throws ValidationError
+	 * @throws SettingsException
+	 * @throws IOException
+	 * @throws SAXException
+	 * @throws ParserConfigurationException
+	 * @throws XPathExpressionException
+	 * @throws Error
+	 *
+	 * @see com.onelogin.saml2.authn.SamlResponse#isValid
+	 */
+	@Test
+	public void testIsInValidAuthStatement_compatibilityMode() throws IOException, Error, XPathExpressionException, ParserConfigurationException, SAXException, SettingsException, ValidationError {
+		Saml2Settings settings = new SettingsBuilder().fromFile("config/config.mywithcompatibilitymode.properties").build();
+		String samlResponseEncoded = Util.getFileAsString("data/responses/invalids/no_authnstatement.xml.base64");
+
+		SamlResponse samlResponse = new SamlResponse(settings, newHttpRequest(samlResponseEncoded));
+ 		assertTrue(samlResponse.isValid());
+		assertNull(samlResponse.getError());
+	}
+
+	/**
+	 * Tests the isValid method of SamlResponse
+	 * Case: multiple authn statements, compatibility mode enabled
+	 *
+	 * @throws ValidationError
+	 * @throws SettingsException
+	 * @throws IOException
+	 * @throws SAXException
+	 * @throws ParserConfigurationException
+	 * @throws XPathExpressionException
+	 * @throws Error
+	 *
+	 * @see com.onelogin.saml2.authn.SamlResponse#isValid
+	 */
+	@Test
+	public void testIsInValidAuthStatement_compatibilityModeMultipleAuthnStatements() throws IOException, Error, XPathExpressionException, ParserConfigurationException, SAXException, SettingsException, ValidationError {
+		Saml2Settings settings = new SettingsBuilder().fromFile("config/config.mywithcompatibilitymode.properties").build();
+		String samlResponseEncoded = Util.getFileAsString("data/responses/invalids/multiple_authnstatements.xml.base64");
+		final CompatibilityModeViolationHandler handler = mock(CompatibilityModeViolationHandler.class);
+		settings.setCompatibilityModeViolationHandler(handler);
+		setDateTime("2010-11-18T21:52:37Z");
+
+		SamlResponse samlResponse = new SamlResponse(settings, newHttpRequest(samlResponseEncoded));
+ 		assertTrue(samlResponse.isValid());
+		assertNull(samlResponse.getError());
+		verify(handler).handleCompatibilityModeAssistedReponse(Collections.singletonList("https://example.com/simplesaml/saml2/idp/metadata.php"), true, 2);
 	}
 
 	/**
@@ -1811,7 +1907,7 @@ public class AuthnResponseTest {
 		settings.setStrict(true);
 		samlResponse = new SamlResponse(settings, newHttpRequest(samlResponseEncoded));
 		assertFalse(samlResponse.isValid());
-		assertEquals("No Signature found. SAML Response rejected", samlResponse.getError());
+		assertEquals("Invalid issuer in the Assertion/Response. Was 'http://invalid.isser.example.com/', but expected 'http://idp.example.com/'", samlResponse.getError());
 		
 	}
 

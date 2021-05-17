@@ -91,7 +91,7 @@ public class SettingsBuilder {
 	public final static String SECURITY_WANT_MESSAGES_SIGNED = "onelogin.saml2.security.want_messages_signed";
 	public final static String SECURITY_WANT_ASSERTIONS_SIGNED = "onelogin.saml2.security.want_assertions_signed";
 	public final static String SECURITY_WANT_ASSERTIONS_ENCRYPTED = "onelogin.saml2.security.want_assertions_encrypted";
-	public final static String SECURITY_WANT_CONDITIONS_PRESENT = "onelogin.saml2.security.want_conditions_present";
+	public final static String SECURITY_COMPATIBILITY_MODE = "onelogin.saml2.security.compatibility_mode";
 	public final static String SECURITY_WANT_NAMEID = "onelogin.saml2.security.want_nameid";
 	public final static String SECURITY_WANT_NAMEID_ENCRYPTED = "onelogin.saml2.security.want_nameid_encrypted";
 	public final static String SECURITY_SIGN_METADATA = "onelogin.saml2.security.sign_metadata";
@@ -350,9 +350,9 @@ public class SettingsBuilder {
 		if (wantXMLValidation != null)
 			saml2Setting.setWantXMLValidation(wantXMLValidation);
 
-		Boolean wantConditionsPresent = loadBooleanProperty(SECURITY_WANT_CONDITIONS_PRESENT);
-		if (wantConditionsPresent != null)
-			saml2Setting.setWantConditionsPresent(wantConditionsPresent);
+		Boolean compatibilityMode = loadBooleanProperty(SECURITY_COMPATIBILITY_MODE);
+		if (compatibilityMode != null)
+			saml2Setting.setCompatibilityMode(compatibilityMode);
 
 		Boolean signMetadata = loadBooleanProperty(SECURITY_SIGN_METADATA);
 		if (signMetadata != null)
